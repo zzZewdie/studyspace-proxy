@@ -4,6 +4,21 @@ import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 
 const PORT = Number(process.env.PORT || 10000);
 
+// Restrict destination ports and block private-network access.
+wisp.options.port_whitelist = [80, 443];
+wisp.options.allow_private_ips = false;
+wisp.options.allow_loopback_ips = false;
+wisp.options.allow_direct_ip = false;
+
+// Limit connections per client.
+wisp.options.stream_limit_per_host = 8;
+wisp.options.stream_limit_total = 30;
+wisp.options.allow_udp_streams = false;
+wisp.options.allow_tcp_streams = true;
+
+// Require a configured secret before accepting WebSocket connections.
+const PROXY_SECRET = process.env.PROXY_SECRET;
+
 const server = http.createServer((request, response) => {
     if (request.url === "/health") {
         response.writeHead(200, {
@@ -16,17 +31,11 @@ const server = http.createServer((request, response) => {
             service: "StudySpace Wisp Transport",
             status: "online"
         }));
-
         return;
     }
 
-    response.writeHead(404, {
-        "Content-Type": "application/json"
-    });
-
-    response.end(JSON.stringify({
-        error: "Not found"
-    }));
+    response.writeHead(404);
+    response.end("Not found");
 });
 
 server.on("upgrade", (request, socket, head) => {
@@ -35,7 +44,17 @@ server.on("upgrade", (request, socket, head) => {
         "http://localhost"
     ).pathname;
 
-    if (pathname !== "/wisp/") {
+    if (pathname !== "/wisp/" || !PROXY_SECRET) {
+        socket.destroy();
+        return;
+    }
+
+    const suppliedSecret = request.headers["x-studyspace-secret"];
+
+    if (
+        typeof suppliedSecret !== "string" ||
+        suppliedSecret !== PROXY_SECRET
+    ) {
         socket.destroy();
         return;
     }
@@ -44,5 +63,5 @@ server.on("upgrade", (request, socket, head) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-    console.log(`StudySpace Wisp Transport listening on ${PORT}`);
+    console.log(`StudySpace transport listening on ${PORT}`);
 });
