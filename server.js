@@ -109,10 +109,17 @@ server.on("upgrade", (request, socket, head) => {
     }
 
     const origin = request.headers.origin;
-    const ticket = url.searchParams.get("ticket");
+    const pathParts = url.pathname.split("/");
+
+    const validPath =
+        pathParts.length === 4 &&
+        pathParts[1] === "wisp" &&
+        pathParts[3] === "";
+
+    const ticket = validPath ? pathParts[2] : null;
 
     if (
-        url.pathname !== "/wisp/" ||
+        !validPath ||
         !ALLOWED_ORIGINS.has(origin) ||
         !verifyTicket(ticket)
     ) {
@@ -120,8 +127,8 @@ server.on("upgrade", (request, socket, head) => {
         return;
     }
 
-    // Remove the ticket query before passing the path to Wisp.
-    request.url = url.pathname;
+    // Remove the ticket before passing the connection to Wisp.
+    request.url = "/wisp/";
 
     wisp.routeRequest(request, socket, head);
 });
