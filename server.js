@@ -11,6 +11,7 @@ const PORT = Number(process.env.PORT || 10000);
 const TICKET_SECRET = process.env.TICKET_SECRET;
 
 const ALLOWED_ORIGINS = new Set([
+    "https://studyspace-hub.web.app",
     "https://studyspace-c7f91.web.app",
     "https://studyspace-c7f91.firebaseapp.com",
     "http://127.0.0.1:5500",
