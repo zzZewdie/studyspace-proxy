@@ -19,16 +19,7 @@ const ALLOWED_ORIGINS = new Set([
     "http://127.0.0.1:5173"
 ]);
 
-// Initial destination protections.
 wisp.options.port_whitelist = [80, 443];
-wisp.options.allow_private_ips = false;
-wisp.options.allow_loopback_ips = false;
-wisp.options.allow_direct_ip = false;
-wisp.options.allow_udp_streams = false;
-wisp.options.allow_tcp_streams = true;
-
-wisp.options.stream_limit_per_host = 8;
-wisp.options.stream_limit_total = 30;
 
 function verifyTicket(ticket) {
     if (!TICKET_SECRET || !ticket || ticket.length > 4096) {
@@ -36,25 +27,18 @@ function verifyTicket(ticket) {
     }
 
     const parts = ticket.split(".");
-
     if (parts.length !== 3) return false;
 
     const [headerPart, payloadPart, signaturePart] = parts;
 
-    const expectedSignature = createHmac(
-        "sha256",
-        TICKET_SECRET
-    )
+    const expectedSignature = createHmac("sha256", TICKET_SECRET)
         .update(`${headerPart}.${payloadPart}`)
         .digest();
 
     let suppliedSignature;
 
     try {
-        suppliedSignature = Buffer.from(
-            signaturePart,
-            "base64url"
-        );
+        suppliedSignature = Buffer.from(signaturePart, "base64url");
     } catch {
         return false;
     }
@@ -93,7 +77,9 @@ function verifyTicket(ticket) {
 }
 
 const server = http.createServer((request, response) => {
-    if (request.url === "/health") {
+    const url = new URL(request.url, "http://localhost");
+
+    if (url.pathname === "/health" || url.pathname === "/health/") {
         response.writeHead(200, {
             "Content-Type": "application/json",
             "Cache-Control": "no-store"
@@ -134,7 +120,9 @@ server.on("upgrade", (request, socket, head) => {
         return;
     }
 
-    // Do not log tickets or connection query strings.
+    // Remove the ticket query before passing the path to Wisp.
+    request.url = url.pathname;
+
     wisp.routeRequest(request, socket, head);
 });
 
